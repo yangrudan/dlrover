@@ -73,7 +73,9 @@ def _create_socket_server(path):
         server.bind(path)
         server.listen(0)
     except OSError as e:
-        logger.error(f"An error occurred while creating the socket server: {e}")
+        logger.error(
+            f"An error occurred while creating the socket server: {e}"
+        )
         if server:
             server.close()
         raise
@@ -261,10 +263,14 @@ class SharedLock(LocalSocketComm):
                 response.locked = self.locked()
             elif msg.method == "release":
                 self.release()
-            response.status = SUCCESS_CODE
-        except Exception:
+
+            if response is None:
+                response = SocketResponse()
+                response.status = SUCCESS_CODE
+        except Exception as e:
             response = SocketResponse()
             response.status = ERROR_CODE
+            logger.error(f"> ERROR: catch exception {e}")
         send_data = pickle.dumps(response)
         _socket_send(connection, send_data)
 
@@ -395,10 +401,14 @@ class SharedQueue(LocalSocketComm):
             elif msg.method == "empty":
                 response = QueueEmptyResponse()
                 response.empty = self.empty()
-            response.status = SUCCESS_CODE
-        except Exception:
+
+            if response is None:
+                response = SocketResponse()
+                response.status = SUCCESS_CODE
+        except Exception as e:
             response = SocketResponse()
             response.status = ERROR_CODE
+            logger.error(f"> ERROR: catch exception {e}")
 
         message = pickle.dumps(response)
         _socket_send(connection, message)
@@ -507,11 +517,14 @@ class SharedDict(LocalSocketComm):
             elif msg.method == "get":
                 response = DictMessage()
                 response.meta_dict = self.get(**msg.args)
-            response.status = SUCCESS_CODE
+
+            if response is None:
+                response = SocketResponse()
+                response.status = SUCCESS_CODE
         except Exception as e:
             response = SocketResponse()
             response.status = ERROR_CODE
-            logger.error(e)
+            logger.error(f"> ERROR: catch exception {e}")
         finally:
             if not self._shared_queue.empty():
                 self._shared_queue.get(1)
